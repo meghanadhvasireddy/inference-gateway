@@ -1,0 +1,28 @@
+syntax = "proto3";
+package inference;
+option java_multiple_files = true;
+option java_package = "com.example.inference.proto";
+
+service InferenceWorker {
+  rpc Infer (InferenceRequest) returns (InferenceResponse);
+  rpc Health (HealthRequest) returns (HealthResponse);
+}
+message InferenceRequest {
+  string request_id = 1;
+  string model = 2;
+  string prompt = 3;
+  double temperature = 4;
+  int32 max_tokens = 5;
+}
+message InferenceResponse {
+  string request_id = 1;
+  string worker_id = 2;
+  string output = 3;
+  int64 latency_ms = 4;
+  int32 token_count = 5;
+}
+message HealthRequest {}
+message HealthResponse {
+  string worker_id = 1;
+  bool healthy = 2;
+}

@@ -1,0 +1,40 @@
+server:
+  port: ${PORT:8080}
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/inference}
+    username: ${DATABASE_USER:inference}
+    password: ${DATABASE_PASSWORD:inference}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 500ms
+  sql:
+    init:
+      mode: always
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+inference:
+  workers: ${WORKERS:localhost:9090}
+  rpc-timeout: ${RPC_TIMEOUT:2s}
+  health-timeout: ${HEALTH_TIMEOUT:300ms}
+  health-interval: ${HEALTH_INTERVAL:5s}
+  cache-ttl: ${CACHE_TTL:10m}
+  max-retries: ${MAX_RETRIES:2}
+  retry-base-delay: ${RETRY_BASE_DELAY:50ms}
