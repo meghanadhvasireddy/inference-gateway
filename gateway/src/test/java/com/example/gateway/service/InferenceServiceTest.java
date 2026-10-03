@@ -10,6 +10,7 @@ import com.example.gateway.grpc.WorkerPool;
 import com.example.inference.proto.InferenceResponse;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.junit.jupiter.api.Test;
 
 class InferenceServiceTest {
@@ -42,5 +43,18 @@ class InferenceServiceTest {
         assertFalse(result.cached());
         assertEquals("worker-2", result.workerId());
         verify(cache).put(eq("key"), eq(new InferenceCache.Entry("fresh answer", "worker-2", 2)));
+    }
+
+    @Test void redisOutageStillUsesWorker() {
+        InferenceCache cache = mock(InferenceCache.class);
+        WorkerPool pool = mock(WorkerPool.class);
+        TelemetryService telemetry = mock(TelemetryService.class);
+        when(cache.key(request)).thenReturn("key");
+        when(cache.get("key")).thenThrow(new DataAccessResourceFailureException("redis unavailable"));
+        when(pool.infer(any())).thenReturn(InferenceResponse.newBuilder().setOutput("answer")
+                .setWorkerId("worker-2").setTokenCount(1).build());
+        InferenceService service = new InferenceService(cache, pool, telemetry, new SimpleMeterRegistry());
+        assertEquals("answer", service.infer(request).response());
+        verify(pool).infer(any());
     }
 }

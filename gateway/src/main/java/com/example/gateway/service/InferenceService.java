@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -47,7 +47,7 @@ public class InferenceService {
             String key = cache.key(request);
             Optional<InferenceCache.Entry> hit = Optional.empty();
             try { hit = cache.get(key); }
-            catch (RedisConnectionFailureException e) { registry.counter("inference.cache.errors").increment(); log.warn("requestId={} cache=unavailable", requestId); }
+            catch (DataAccessException e) { registry.counter("inference.cache.errors").increment(); log.warn("requestId={} cache=unavailable", requestId); }
             String output;
             if (hit.isPresent()) {
                 cached = true;
@@ -61,7 +61,7 @@ public class InferenceService {
                         .setMaxTokens(request.maxTokens()).build());
                 output = response.getOutput(); workerId = response.getWorkerId(); tokenCount = response.getTokenCount();
                 try { cache.put(key, new InferenceCache.Entry(output, workerId, tokenCount)); }
-                catch (RedisConnectionFailureException e) { registry.counter("inference.cache.errors").increment(); log.warn("requestId={} cache=write_failed", requestId); }
+                catch (DataAccessException e) { registry.counter("inference.cache.errors").increment(); log.warn("requestId={} cache=write_failed", requestId); }
             }
             success = true;
             registry.counter("inference.successes").increment();

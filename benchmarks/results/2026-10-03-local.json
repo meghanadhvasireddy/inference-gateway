@@ -1,0 +1,65 @@
+{
+  "measuredAt": "2026-10-03T22:21:13.123Z",
+  "cacheMode": "unique",
+  "stageSeconds": 10,
+  "baseUrl": "http://inference-gateway:8080",
+  "overallErrorRate": 0,
+  "cacheHits": 0,
+  "stages": [
+    {
+      "vus": 1,
+      "requests": 63,
+      "throughputRps": 6.3,
+      "avgMs": 159.18504152380953,
+      "p50Ms": 157.446792,
+      "p95Ms": 211.214982,
+      "p99Ms": 356.0014903799998,
+      "errorRate": 0,
+      "cacheHitRate": 0
+    },
+    {
+      "vus": 10,
+      "requests": 747,
+      "throughputRps": 74.7,
+      "avgMs": 134.54143290763042,
+      "p50Ms": 131.851417,
+      "p95Ms": 200.0007419,
+      "p99Ms": 205.75586768,
+      "errorRate": 0,
+      "cacheHitRate": 0
+    },
+    {
+      "vus": 50,
+      "requests": 3685,
+      "throughputRps": 368.5,
+      "avgMs": 138.21757600597027,
+      "p50Ms": 136.9045,
+      "p95Ms": 201.27744199999998,
+      "p99Ms": 269.91102287999996,
+      "errorRate": 0,
+      "cacheHitRate": 0
+    },
+    {
+      "vus": 100,
+      "requests": 6088,
+      "throughputRps": 608.8,
+      "avgMs": 164.18756410808163,
+      "p50Ms": 153.713959,
+      "p95Ms": 307.41071479999994,
+      "p99Ms": 471.15802312999995,
+      "errorRate": 0,
+      "cacheHitRate": 0
+    },
+    {
+      "vus": 250,
+      "requests": 12414,
+      "throughputRps": 1241.4,
+      "avgMs": 202.34785322901422,
+      "p50Ms": 192.152209,
+      "p95Ms": 351.98843575,
+      "p99Ms": 501.7892009199999,
+      "errorRate": 0,
+      "cacheHitRate": 0
+    }
+  ]
+}
