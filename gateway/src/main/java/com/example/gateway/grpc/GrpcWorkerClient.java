@@ -6,6 +6,8 @@ import com.example.inference.proto.InferenceResponse;
 import com.example.inference.proto.InferenceWorkerGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,7 +38,11 @@ public final class GrpcWorkerClient implements WorkerClient, AutoCloseable {
     public InferenceResponse infer(InferenceRequest request, Duration timeout) {
         active.incrementAndGet();
         try { return stub.withDeadlineAfter(timeout.toMillis(), TimeUnit.MILLISECONDS).infer(request); }
-        catch (RuntimeException e) { healthy.set(false); throw e; }
+        catch (StatusRuntimeException e) {
+            Status.Code code = e.getStatus().getCode();
+            if (code == Status.Code.UNAVAILABLE || code == Status.Code.DEADLINE_EXCEEDED) healthy.set(false);
+            throw e;
+        }
         finally { active.decrementAndGet(); }
     }
     public void close() { channel.shutdown(); }

@@ -9,11 +9,14 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceWorkerImplBase {
+public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceWorkerImplBase implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(InferenceWorkerService.class);
     private final String workerId;
     private final InferenceEngine engine;
+    private final ExecutorService inferenceExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public InferenceWorkerService(String workerId, InferenceEngine engine) {
         this.workerId = workerId;
@@ -22,6 +25,10 @@ public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceW
 
     @Override
     public void infer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
+        inferenceExecutor.execute(() -> doInfer(request, observer));
+    }
+
+    private void doInfer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
         long start = System.nanoTime();
         try {
             if (request.getPrompt().isBlank() || request.getMaxTokens() < 1) {
@@ -53,4 +60,6 @@ public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceW
         observer.onNext(HealthResponse.newBuilder().setWorkerId(workerId).setHealthy(true).build());
         observer.onCompleted();
     }
+
+    public void close() { inferenceExecutor.close(); }
 }

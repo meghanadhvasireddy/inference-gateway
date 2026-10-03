@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -28,6 +29,7 @@ public class WorkerPool {
     private final MeterRegistry registry;
     private final AtomicInteger tieBreaker = new AtomicInteger();
 
+    @Autowired
     public WorkerPool(GatewayProperties properties, MeterRegistry registry) {
         this(properties.workers().stream().map(GrpcWorkerClient::new).map(WorkerClient.class::cast).toList(), properties, registry);
     }

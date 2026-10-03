@@ -11,12 +11,14 @@ public final class WorkerApplication {
     public static void main(String[] args) throws Exception {
         String workerId = System.getenv().getOrDefault("WORKER_ID", "worker-local");
         int port = Integer.parseInt(System.getenv().getOrDefault("WORKER_PORT", "9090"));
+        InferenceWorkerService service = new InferenceWorkerService(workerId, new MockInferenceEngine());
         Server server = NettyServerBuilder.forPort(port)
-                .executor(Executors.newFixedThreadPool(Math.max(4, Runtime.getRuntime().availableProcessors())))
-                .addService(new InferenceWorkerService(workerId, new MockInferenceEngine())).build().start();
+                .executor(Executors.newFixedThreadPool(8))
+                .addService(service).build().start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.shutdown();
             try { server.awaitTermination(10, TimeUnit.SECONDS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            service.close();
         }));
         System.out.printf("workerId=%s port=%d status=started%n", workerId, port);
         server.awaitTermination();

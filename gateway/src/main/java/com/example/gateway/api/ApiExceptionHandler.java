@@ -1,6 +1,8 @@
 package com.example.gateway.api;
 
 import com.example.gateway.grpc.WorkerUnavailableException;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,5 +19,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(WorkerUnavailableException.class)
     ResponseEntity<Map<String, String>> unavailable(WorkerUnavailableException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", "workers_unavailable", "message", e.getMessage()));
+    }
+    @ExceptionHandler(StatusRuntimeException.class)
+    ResponseEntity<Map<String, String>> grpc(StatusRuntimeException e) {
+        if (e.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_request", "message", "Worker rejected the inference request"));
+        }
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "worker_error", "message", "Inference worker request failed"));
     }
 }

@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -24,9 +25,11 @@ public class InferenceService {
     private final WorkerPool pool;
     private final TelemetryService telemetry;
     private final MeterRegistry registry;
+    private final AtomicInteger active = new AtomicInteger();
 
     public InferenceService(InferenceCache cache, WorkerPool pool, TelemetryService telemetry, MeterRegistry registry) {
         this.cache = cache; this.pool = pool; this.telemetry = telemetry; this.registry = registry;
+        registry.gauge("inference.active", active);
     }
 
     public InferenceResponseDto infer(InferenceRequestDto request) {
@@ -39,6 +42,7 @@ public class InferenceService {
         boolean success = false;
         String errorType = null;
         registry.counter("inference.requests").increment();
+        active.incrementAndGet();
         try {
             String key = cache.key(request);
             Optional<InferenceCache.Entry> hit = Optional.empty();
@@ -68,13 +72,19 @@ public class InferenceService {
             throw e;
         } finally {
             long latencyMs = elapsedMs(start);
+            MDC.put("workerId", workerId == null ? "" : workerId);
+            MDC.put("model", request.model());
+            MDC.put("latencyMs", Long.toString(latencyMs));
+            MDC.put("cached", Boolean.toString(cached));
+            MDC.put("status", success ? "success" : errorType);
             Timer.builder("inference.latency").publishPercentileHistogram().register(registry)
                     .record(java.time.Duration.ofNanos(System.nanoTime() - start));
             telemetry.record(new InferenceRequestEntity(requestId, request.model(), workerId, cache.promptHash(request.prompt()),
                     latencyMs, tokenCount, cached, success, errorType));
             log.info("requestId={} workerId={} model={} latencyMs={} cached={} status={}",
                     requestId, workerId, request.model(), latencyMs, cached, success ? "success" : errorType);
-            MDC.remove("requestId");
+            MDC.clear();
+            active.decrementAndGet();
         }
     }
 

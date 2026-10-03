@@ -5,3 +5,5 @@ target/
 .env
 *.log
 
+
+benchmarks/results*.json

@@ -1,5 +1,9 @@
 server:
   port: ${PORT:8080}
+logging:
+  structured:
+    format:
+      console: logstash
 spring:
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/inference}
@@ -33,7 +37,7 @@ management:
 inference:
   workers: ${WORKERS:localhost:9090}
   rpc-timeout: ${RPC_TIMEOUT:2s}
-  health-timeout: ${HEALTH_TIMEOUT:300ms}
+  health-timeout: ${HEALTH_TIMEOUT:1s}
   health-interval: ${HEALTH_INTERVAL:5s}
   cache-ttl: ${CACHE_TTL:10m}
   max-retries: ${MAX_RETRIES:2}

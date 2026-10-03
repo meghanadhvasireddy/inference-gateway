@@ -1,0 +1,99 @@
+name: inference-gateway
+services:
+  inference-gateway:
+    build: { context: ., dockerfile: gateway/Dockerfile }
+    environment:
+      WORKERS: inference-worker-1:9090,inference-worker-2:9090,inference-worker-3:9090
+      REDIS_HOST: redis
+      DATABASE_URL: jdbc:postgresql://postgres:5432/inference
+      DATABASE_USER: inference
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      RPC_TIMEOUT: ${RPC_TIMEOUT:-2s}
+      CACHE_TTL: ${CACHE_TTL:-10m}
+      MAX_RETRIES: ${MAX_RETRIES:-2}
+    ports: ["8080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      inference-worker-1: { condition: service_healthy }
+      inference-worker-2: { condition: service_healthy }
+      inference-worker-3: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+    restart: unless-stopped
+    networks: [backend, monitoring]
+  inference-worker-1: &worker
+    build: { context: ., dockerfile: worker/Dockerfile }
+    environment: { WORKER_ID: worker-1, WORKER_PORT: "9090" }
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9090' "]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks: [backend]
+  inference-worker-2:
+    <<: *worker
+    environment: { WORKER_ID: worker-2, WORKER_PORT: "9090" }
+  inference-worker-3:
+    <<: *worker
+    environment: { WORKER_ID: worker-3, WORKER_PORT: "9090" }
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    restart: unless-stopped
+    networks: [backend]
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: inference
+      POSTGRES_USER: inference
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inference -d inference"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks: [backend]
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes: ["./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9091:9090"]
+    depends_on:
+      inference-gateway: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [monitoring]
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+    restart: unless-stopped
+    networks: [monitoring]
+networks:
+  backend: { internal: true }
+  monitoring: {}
+volumes:
+  postgres-data: {}
+  grafana-data: {}

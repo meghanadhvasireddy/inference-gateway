@@ -16,8 +16,8 @@ public class TelemetryService {
     private static final Logger log = LoggerFactory.getLogger(TelemetryService.class);
     private final InferenceRequestRepository repository;
     private final MeterRegistry registry;
-    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 2, 30, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(1000), r -> { Thread t = new Thread(r, "telemetry-writer"); t.setDaemon(true); return t; });
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(4, 4, 30, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(10000), r -> { Thread t = new Thread(r, "telemetry-writer"); t.setDaemon(true); return t; });
     public TelemetryService(InferenceRequestRepository repository, MeterRegistry registry) {
         this.repository = repository; this.registry = registry;
         registry.gauge("inference.telemetry.queue", executor.getQueue(), java.util.Collection::size);

@@ -1,0 +1,67 @@
+{
+  "uid": "inference-gateway",
+  "title": "Inference Gateway",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "title": "Request throughput", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(inference_requests_total[1m]))", "legendFormat": "requests/s" }]
+    },
+    {
+      "id": 2, "title": "Error rate", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(inference_failures_total[1m])) / clamp_min(sum(rate(inference_requests_total[1m])), 0.001)", "legendFormat": "error fraction" }]
+    },
+    {
+      "id": 3, "title": "End-to-end latency", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(inference_latency_seconds_bucket[5m])))", "legendFormat": "P50" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(inference_latency_seconds_bucket[5m])))", "legendFormat": "P95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(inference_latency_seconds_bucket[5m])))", "legendFormat": "P99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4, "title": "Requests per worker", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (worker) (rate(inference_worker_requests_total[1m]))", "legendFormat": "{{worker}}" }]
+    },
+    {
+      "id": 5, "title": "Worker health", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "inference_worker_healthy", "legendFormat": "{{worker}}" }]
+    },
+    {
+      "id": 6, "title": "Cache hit ratio", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(inference_cache_hits_total[5m])) / clamp_min(sum(rate(inference_cache_hits_total[5m])) + sum(rate(inference_cache_misses_total[5m])), 0.001)", "legendFormat": "hit ratio" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "id": 7, "title": "Active requests", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "inference_active", "legendFormat": "gateway" }]
+    },
+    {
+      "id": 8, "title": "Worker failures and retries", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "sum(rate(inference_worker_failures_total[1m]))", "legendFormat": "worker failures/s" },
+        { "expr": "sum(rate(inference_retries_total[1m]))", "legendFormat": "retries/s" }
+      ]
+    }
+  ]
+}
