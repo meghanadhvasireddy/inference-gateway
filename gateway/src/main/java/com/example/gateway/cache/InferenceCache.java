@@ -11,9 +11,13 @@ import java.util.HexFormat;
 import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataAccessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class InferenceCache {
+    private static final Logger log = LoggerFactory.getLogger(InferenceCache.class);
     public record Entry(String output, String workerId, int tokenCount) {}
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
@@ -36,7 +40,11 @@ public class InferenceCache {
         String json = redis.opsForValue().get(key);
         if (json == null) return Optional.empty();
         try { return Optional.of(mapper.readValue(json, Entry.class)); }
-        catch (JsonProcessingException e) { redis.delete(key); return Optional.empty(); }
+        catch (JsonProcessingException e) {
+            try { redis.delete(key); }
+            catch (DataAccessException deleteError) { log.warn("cacheKey={} corrupt_entry_delete_failed", key); }
+            return Optional.empty();
+        }
     }
     public void put(String key, Entry value) {
         try { redis.opsForValue().set(key, mapper.writeValueAsString(value), properties.cacheTtl()); }
