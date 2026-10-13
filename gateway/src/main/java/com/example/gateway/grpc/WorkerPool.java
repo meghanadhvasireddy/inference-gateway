@@ -83,7 +83,8 @@ public class WorkerPool {
                 if (code != Status.Code.UNAVAILABLE && code != Status.Code.DEADLINE_EXCEEDED && code != Status.Code.RESOURCE_EXHAUSTED) throw e;
                 attempted.add(worker.id());
                 last = e;
-                if (attempt == properties.maxRetries()) break;
+                if (attempt == properties.maxRetries()
+                        || workers.stream().noneMatch(w -> w.healthy() && !attempted.contains(w.id()))) break;
                 registry.counter("inference.retries").increment();
                 backoff(attempt);
             }

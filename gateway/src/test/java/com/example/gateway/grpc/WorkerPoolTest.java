@@ -70,4 +70,15 @@ class WorkerPoolTest {
                 () -> pool.infer(request))).getCode());
         verify(second, never()).infer(any(), any());
     }
+
+    @Test void doesNotCountRetryWhenNoBackupExists() {
+        WorkerClient only = worker("only", 0, true);
+        InferenceRequest request = InferenceRequest.newBuilder().setRequestId("r").build();
+        when(only.infer(eq(request), any())).thenThrow(Status.UNAVAILABLE.asRuntimeException());
+        SimpleMeterRegistry meters = new SimpleMeterRegistry();
+        WorkerPool pool = new WorkerPool(List.of(only), config, meters);
+        assertThrows(WorkerUnavailableException.class, () -> pool.infer(request));
+        assertEquals(0, meters.counter("inference.retries").count());
+        verify(only, times(1)).infer(any(), any());
+    }
 }
