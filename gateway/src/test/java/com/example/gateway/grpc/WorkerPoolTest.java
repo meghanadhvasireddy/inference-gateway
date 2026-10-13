@@ -58,4 +58,16 @@ class WorkerPoolTest {
                 () -> pool.infer(request))).getCode());
         verify(second, never()).infer(any(), any());
     }
+
+    @Test void rejectsResponseForAnotherRequest() {
+        WorkerClient first = worker("first", 0, true);
+        WorkerClient second = worker("second", 1, true);
+        InferenceRequest request = InferenceRequest.newBuilder().setRequestId("expected").build();
+        when(first.infer(eq(request), any())).thenReturn(InferenceResponse.newBuilder()
+                .setRequestId("another-request").setWorkerId("first").build());
+        WorkerPool pool = new WorkerPool(List.of(first, second), config, new SimpleMeterRegistry());
+        assertEquals(Status.Code.DATA_LOSS, Status.fromThrowable(assertThrows(RuntimeException.class,
+                () -> pool.infer(request))).getCode());
+        verify(second, never()).infer(any(), any());
+    }
 }

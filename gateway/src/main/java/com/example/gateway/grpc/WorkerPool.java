@@ -69,6 +69,9 @@ public class WorkerPool {
             long start = System.nanoTime();
             try {
                 InferenceResponse response = worker.infer(request, properties.rpcTimeout());
+                if (!request.getRequestId().equals(response.getRequestId()) || response.getWorkerId().isBlank()) {
+                    throw Status.DATA_LOSS.withDescription("worker returned mismatched response metadata").asRuntimeException();
+                }
                 Timer.builder("inference.worker.latency").tag("worker", worker.id())
                         .publishPercentileHistogram().register(registry).record(Duration.ofNanos(System.nanoTime() - start));
                 Counter.builder("inference.worker.requests").tag("worker", worker.id()).register(registry).increment();
