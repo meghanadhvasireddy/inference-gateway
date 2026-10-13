@@ -7,6 +7,7 @@ import com.example.inference.proto.HealthResponse;
 import com.example.inference.proto.InferenceRequest;
 import com.example.inference.proto.InferenceResponse;
 import io.grpc.stub.StreamObserver;
+import io.grpc.Status;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +31,23 @@ class InferenceWorkerServiceTest {
             for (int i = 0; i < 100 && response.get() == null; i++) Thread.sleep(10);
             assertEquals("test-id", response.get().getRequestId());
         } finally { release.countDown(); }
+    }
+
+    @Test void rejectsInvalidTemperatureBeforeCallingEngine() throws Exception {
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        try (InferenceWorkerService service = new InferenceWorkerService("worker-test", request -> {
+            throw new AssertionError("engine must not run");
+        })) {
+            service.infer(InferenceRequest.newBuilder().setRequestId("r").setModel("mock-llm")
+                    .setPrompt("hello").setMaxTokens(10).setTemperature(Double.NaN).build(), new StreamObserver<>() {
+                public void onNext(InferenceResponse value) { fail("unexpected response"); }
+                public void onError(Throwable throwable) { error.set(throwable); done.countDown(); }
+                public void onCompleted() { fail("unexpected completion"); }
+            });
+            assertTrue(done.await(1, TimeUnit.SECONDS));
+            assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(error.get()).getCode());
+        }
     }
 
     private static <T> StreamObserver<T> observer(AtomicReference<T> result) {

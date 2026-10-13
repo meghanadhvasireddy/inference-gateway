@@ -31,8 +31,9 @@ public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceW
     private void doInfer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
         long start = System.nanoTime();
         try {
-            if (request.getPrompt().isBlank() || request.getMaxTokens() < 1) {
-                observer.onError(Status.INVALID_ARGUMENT.withDescription("prompt and max_tokens are required").asRuntimeException());
+            if (request.getRequestId().isBlank() || request.getPrompt().isBlank() || request.getMaxTokens() < 1
+                    || !Double.isFinite(request.getTemperature()) || request.getTemperature() < 0 || request.getTemperature() > 2) {
+                observer.onError(Status.INVALID_ARGUMENT.withDescription("invalid inference request").asRuntimeException());
                 return;
             }
             if (!request.getModel().equals("mock-llm")) {
