@@ -73,6 +73,8 @@ An actual response from the local stack:
 
 Send the same body again to see `cached: true`. Stop one worker with `docker compose stop inference-worker-1`, wait for the next health probe, and send a new prompt to see failover. Restart it with `docker compose start inference-worker-1`.
 
+For a quick repeatable check of readiness, an uncached request, a Redis hit, the `X-Request-Id` header, and Prometheus metrics, run `python3 scripts/smoke.py` after the stack starts.
+
 ## Telemetry and observability
 
 `inference_requests` contains `request_id`, `model`, `worker_id`, a SHA-256 `prompt_hash`, `latency_ms`, `token_count`, `cached`, `success`, `error_type`, and `created_at`. Raw prompts are not stored. A bounded queue and four writer threads keep ordinary database writes off the REST response path; queue saturation increments `inference_telemetry_dropped_total` and logs the request ID. This is a best-effort audit trail, not guaranteed delivery. The queue size is exposed as `inference_telemetry_queue`.
@@ -93,7 +95,7 @@ If Maven is not installed locally, the same command can run in a Java 21 Maven c
 docker run --rm -v "$PWD":/app -w /app maven:3.9.9-eclipse-temurin-21 mvn test
 ```
 
-The suite covers REST validation, cache hits and misses, Redis failure fallback, least-active selection, unhealthy workers, retry to a different worker, non-retryable errors, JPA persistence on an embedded test database, and health responsiveness during inference. The Compose smoke check additionally verified Redis hits, PostgreSQL persistence, Prometheus metrics, and worker failover.
+The suite covers REST validation, cache hits and misses, Redis failure fallback, least-active selection, unhealthy workers, retry to a different worker, non-retryable errors, JPA persistence on an embedded test database, and health responsiveness during inference. GitHub Actions runs the Java tests on each push and pull request. The Compose smoke check additionally verifies Redis hits, Prometheus metrics, and the request ID header; a manual Compose check verified PostgreSQL persistence and worker failover.
 
 Run the k6 workload against the Compose network:
 
