@@ -22,7 +22,8 @@ class InferenceControllerTest {
         when(service.infer(any())).thenReturn(new InferenceResponseDto("request-id", "mock-llm", "answer", 12, false, "worker-1"));
         mvc.perform(post("/api/v1/inference").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"model\":\"mock-llm\",\"prompt\":\"hello\",\"temperature\":0.7,\"maxTokens\":10}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.requestId").value("request-id"))
+                .andExpect(status().isOk()).andExpect(header().string("X-Request-Id", "request-id"))
+                .andExpect(jsonPath("$.requestId").value("request-id"))
                 .andExpect(jsonPath("$.workerId").value("worker-1"));
     }
 
