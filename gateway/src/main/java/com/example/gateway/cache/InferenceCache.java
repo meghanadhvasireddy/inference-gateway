@@ -27,9 +27,15 @@ public class InferenceCache {
         this.redis = redis; this.mapper = mapper; this.properties = properties;
     }
     public String key(InferenceRequestDto request) {
-        String canonical = request.model() + "\0" + request.prompt() + "\0"
-                + Double.toString(request.temperature()) + "\0" + request.maxTokens();
-        return "inference:v1:" + hash(canonical);
+        StringBuilder canonical = new StringBuilder();
+        appendField(canonical, request.model());
+        appendField(canonical, request.prompt());
+        appendField(canonical, Double.toString(request.temperature()));
+        appendField(canonical, Integer.toString(request.maxTokens()));
+        return "inference:v2:" + hash(canonical.toString());
+    }
+    private static void appendField(StringBuilder key, String value) {
+        key.append(value.length()).append(':').append(value);
     }
     public String promptHash(String prompt) { return hash(prompt); }
     private String hash(String input) {
