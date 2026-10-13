@@ -31,10 +31,12 @@ public class WorkerPool {
 
     @Autowired
     public WorkerPool(GatewayProperties properties, MeterRegistry registry) {
-        this(properties.workers().stream().map(GrpcWorkerClient::new).map(WorkerClient.class::cast).toList(), properties, registry);
+        this(java.util.Objects.requireNonNull(properties.workers(), "inference.workers is required")
+                .stream().map(GrpcWorkerClient::new).map(WorkerClient.class::cast).toList(), properties, registry);
     }
 
     WorkerPool(List<WorkerClient> workers, GatewayProperties properties, MeterRegistry registry) {
+        if (workers.isEmpty()) throw new IllegalArgumentException("at least one inference worker is required");
         this.workers = List.copyOf(workers);
         this.properties = properties;
         this.registry = registry;

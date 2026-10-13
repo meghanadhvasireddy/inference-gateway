@@ -81,4 +81,9 @@ class WorkerPoolTest {
         assertEquals(0, meters.counter("inference.retries").count());
         verify(only, times(1)).infer(any(), any());
     }
+
+    @Test void emptyWorkerConfigurationFailsAtStartup() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkerPool(List.of(), config, new SimpleMeterRegistry()));
+    }
 }
