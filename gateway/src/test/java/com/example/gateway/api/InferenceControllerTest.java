@@ -32,4 +32,9 @@ class InferenceControllerTest {
                 .content("{\"model\":\"unknown\",\"prompt\":\"\",\"temperature\":3,\"maxTokens\":0}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_request"));
     }
+
+    @Test void malformedJsonUsesTheSameErrorShape() throws Exception {
+        mvc.perform(post("/api/v1/inference").contentType(MediaType.APPLICATION_JSON).content("{broken"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_request"));
+    }
 }
