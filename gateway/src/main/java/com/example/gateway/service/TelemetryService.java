@@ -32,5 +32,19 @@ public class TelemetryService {
             log.warn("requestId={} telemetry=dropped", entity.requestId);
         }
     }
-    @PreDestroy public void close() { executor.shutdown(); }
+    @PreDestroy
+    public void close() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                int dropped = executor.shutdownNow().size();
+                registry.counter("inference.telemetry.dropped").increment(dropped);
+                log.warn("telemetry shutdown timed out; queuedRowsDropped={}", dropped);
+            }
+        } catch (InterruptedException e) {
+            int dropped = executor.shutdownNow().size();
+            registry.counter("inference.telemetry.dropped").increment(dropped);
+            Thread.currentThread().interrupt();
+        }
+    }
 }
