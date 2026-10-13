@@ -79,6 +79,7 @@ class WorkerPoolTest {
         WorkerPool pool = new WorkerPool(List.of(only), config, meters);
         assertThrows(WorkerUnavailableException.class, () -> pool.infer(request));
         assertEquals(0, meters.counter("inference.retries").count());
+        assertEquals(1, meters.get("inference.worker.latency").tag("worker", "only").timer().count());
         verify(only, times(1)).infer(any(), any());
     }
 

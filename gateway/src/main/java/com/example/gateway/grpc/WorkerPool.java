@@ -74,11 +74,11 @@ public class WorkerPool {
                 if (!request.getRequestId().equals(response.getRequestId()) || response.getWorkerId().isBlank()) {
                     throw Status.DATA_LOSS.withDescription("worker returned mismatched response metadata").asRuntimeException();
                 }
-                Timer.builder("inference.worker.latency").tag("worker", worker.id())
-                        .publishPercentileHistogram().register(registry).record(Duration.ofNanos(System.nanoTime() - start));
+                recordLatency(worker, start);
                 Counter.builder("inference.worker.requests").tag("worker", worker.id()).register(registry).increment();
                 return response;
             } catch (StatusRuntimeException e) {
+                recordLatency(worker, start);
                 Status.Code code = e.getStatus().getCode();
                 if (code == Status.Code.INVALID_ARGUMENT || code == Status.Code.PERMISSION_DENIED || code == Status.Code.UNAUTHENTICATED) throw e;
                 Counter.builder("inference.worker.failures").tag("worker", worker.id()).register(registry).increment();
@@ -89,9 +89,17 @@ public class WorkerPool {
                         || workers.stream().noneMatch(w -> w.healthy() && !attempted.contains(w.id()))) break;
                 registry.counter("inference.retries").increment();
                 backoff(attempt);
+            } catch (RuntimeException e) {
+                recordLatency(worker, start);
+                throw e;
             }
         }
         throw new WorkerUnavailableException("All attempted inference workers failed", last);
+    }
+
+    private void recordLatency(WorkerClient worker, long start) {
+        Timer.builder("inference.worker.latency").tag("worker", worker.id())
+                .publishPercentileHistogram().register(registry).record(Duration.ofNanos(System.nanoTime() - start));
     }
 
     private void backoff(int attempt) {
