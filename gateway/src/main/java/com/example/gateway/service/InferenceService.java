@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class InferenceService {
 
     public InferenceResponseDto infer(InferenceRequestDto request) {
         String requestId = UUID.randomUUID().toString();
+        Map<String, String> previousLogContext = MDC.getCopyOfContextMap();
         MDC.put("requestId", requestId);
         long start = System.nanoTime();
         String workerId = null;
@@ -71,20 +73,24 @@ public class InferenceService {
             registry.counter("inference.failures").increment();
             throw e;
         } finally {
-            long latencyMs = elapsedMs(start);
-            MDC.put("workerId", workerId == null ? "" : workerId);
-            MDC.put("model", request.model());
-            MDC.put("latencyMs", Long.toString(latencyMs));
-            MDC.put("cached", Boolean.toString(cached));
-            MDC.put("status", success ? "success" : errorType);
-            Timer.builder("inference.latency").publishPercentileHistogram().register(registry)
-                    .record(java.time.Duration.ofNanos(System.nanoTime() - start));
-            telemetry.record(new InferenceRequestEntity(requestId, request.model(), workerId, cache.promptHash(request.prompt()),
-                    latencyMs, tokenCount, cached, success, errorType));
-            log.info("requestId={} workerId={} model={} latencyMs={} cached={} status={}",
-                    requestId, workerId, request.model(), latencyMs, cached, success ? "success" : errorType);
-            MDC.clear();
-            active.decrementAndGet();
+            try {
+                long latencyMs = elapsedMs(start);
+                MDC.put("workerId", workerId == null ? "" : workerId);
+                MDC.put("model", request.model());
+                MDC.put("latencyMs", Long.toString(latencyMs));
+                MDC.put("cached", Boolean.toString(cached));
+                MDC.put("status", success ? "success" : errorType);
+                Timer.builder("inference.latency").publishPercentileHistogram().register(registry)
+                        .record(java.time.Duration.ofNanos(System.nanoTime() - start));
+                telemetry.record(new InferenceRequestEntity(requestId, request.model(), workerId, cache.promptHash(request.prompt()),
+                        latencyMs, tokenCount, cached, success, errorType));
+                log.info("requestId={} workerId={} model={} latencyMs={} cached={} status={}",
+                        requestId, workerId, request.model(), latencyMs, cached, success ? "success" : errorType);
+            } finally {
+                if (previousLogContext == null) MDC.clear();
+                else MDC.setContextMap(previousLogContext);
+                active.decrementAndGet();
+            }
         }
     }
 

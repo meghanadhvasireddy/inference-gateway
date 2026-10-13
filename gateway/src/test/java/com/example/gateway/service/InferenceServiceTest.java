@@ -11,6 +11,7 @@ import com.example.inference.proto.InferenceResponse;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.Test;
 
 class InferenceServiceTest {
@@ -56,5 +57,22 @@ class InferenceServiceTest {
         InferenceService service = new InferenceService(cache, pool, telemetry, new SimpleMeterRegistry());
         assertEquals("answer", service.infer(request).response());
         verify(pool).infer(any());
+    }
+
+    @Test void preservesCallerLogContext() {
+        InferenceCache cache = mock(InferenceCache.class);
+        WorkerPool pool = mock(WorkerPool.class);
+        TelemetryService telemetry = mock(TelemetryService.class);
+        when(cache.key(request)).thenReturn("key");
+        when(cache.get("key")).thenReturn(Optional.of(new InferenceCache.Entry("answer", "worker-1", 1)));
+        SimpleMeterRegistry meters = new SimpleMeterRegistry();
+        InferenceService service = new InferenceService(cache, pool, telemetry, meters);
+        MDC.put("traceId", "outer-trace");
+        try {
+            service.infer(request);
+            assertEquals("outer-trace", MDC.get("traceId"));
+            assertNull(MDC.get("requestId"));
+            assertEquals(0, meters.get("inference.active").gauge().value());
+        } finally { MDC.clear(); }
     }
 }
