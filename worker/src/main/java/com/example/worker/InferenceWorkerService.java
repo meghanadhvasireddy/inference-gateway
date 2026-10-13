@@ -11,21 +11,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceWorkerImplBase implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(InferenceWorkerService.class);
     private final String workerId;
     private final InferenceEngine engine;
     private final ExecutorService inferenceExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final Semaphore capacity;
 
     public InferenceWorkerService(String workerId, InferenceEngine engine) {
+        this(workerId, engine, 256);
+    }
+
+    public InferenceWorkerService(String workerId, InferenceEngine engine, int maxInflight) {
+        if (maxInflight < 1) throw new IllegalArgumentException("maxInflight must be positive");
         this.workerId = workerId;
         this.engine = engine;
+        this.capacity = new Semaphore(maxInflight);
     }
 
     @Override
     public void infer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
-        inferenceExecutor.execute(() -> doInfer(request, observer));
+        if (!capacity.tryAcquire()) {
+            observer.onError(Status.RESOURCE_EXHAUSTED.withDescription("worker is at capacity").asRuntimeException());
+            return;
+        }
+        try {
+            inferenceExecutor.execute(() -> {
+                try { doInfer(request, observer); }
+                finally { capacity.release(); }
+            });
+        } catch (RuntimeException e) {
+            capacity.release();
+            observer.onError(Status.UNAVAILABLE.withCause(e).asRuntimeException());
+        }
     }
 
     private void doInfer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {

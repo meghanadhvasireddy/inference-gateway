@@ -11,7 +11,8 @@ public final class WorkerApplication {
     public static void main(String[] args) throws Exception {
         String workerId = System.getenv().getOrDefault("WORKER_ID", "worker-local");
         int port = Integer.parseInt(System.getenv().getOrDefault("WORKER_PORT", "9090"));
-        InferenceWorkerService service = new InferenceWorkerService(workerId, new MockInferenceEngine());
+        int maxInflight = Integer.parseInt(System.getenv().getOrDefault("WORKER_MAX_INFLIGHT", "256"));
+        InferenceWorkerService service = new InferenceWorkerService(workerId, new MockInferenceEngine(), maxInflight);
         Server server = NettyServerBuilder.forPort(port)
                 .executor(Executors.newFixedThreadPool(8))
                 .addService(service).build().start();

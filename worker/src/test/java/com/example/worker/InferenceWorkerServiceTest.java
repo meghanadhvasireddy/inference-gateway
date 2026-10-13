@@ -50,6 +50,28 @@ class InferenceWorkerServiceTest {
         }
     }
 
+    @Test void returnsResourceExhaustedAtCapacity() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch rejected = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        InferenceRequest request = InferenceRequest.newBuilder().setRequestId("r").setModel("mock-llm")
+                .setPrompt("hello").setMaxTokens(10).build();
+        try (InferenceWorkerService service = new InferenceWorkerService("worker-test", r -> {
+            started.countDown(); release.await(2, TimeUnit.SECONDS); return "answer";
+        }, 1)) {
+            service.infer(request, observer(new AtomicReference<>()));
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            service.infer(request, new StreamObserver<>() {
+                public void onNext(InferenceResponse value) { fail("unexpected response"); }
+                public void onError(Throwable throwable) { error.set(throwable); rejected.countDown(); }
+                public void onCompleted() { fail("unexpected completion"); }
+            });
+            assertTrue(rejected.await(1, TimeUnit.SECONDS));
+            assertEquals(Status.Code.RESOURCE_EXHAUSTED, Status.fromThrowable(error.get()).getCode());
+        } finally { release.countDown(); }
+    }
+
     private static <T> StreamObserver<T> observer(AtomicReference<T> result) {
         return new StreamObserver<>() {
             public void onNext(T value) { result.set(value); }
