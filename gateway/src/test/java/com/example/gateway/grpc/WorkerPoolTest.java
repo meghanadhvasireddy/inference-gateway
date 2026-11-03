@@ -37,6 +37,15 @@ class WorkerPoolTest {
         assertThrows(WorkerUnavailableException.class, () -> pool.select(Set.of("idle", "busy")));
     }
 
+    @Test void equalLoadRotatesAcrossWorkers() {
+        WorkerClient first = worker("first", 0, true);
+        WorkerClient second = worker("second", 0, true);
+        WorkerClient third = worker("third", 0, true);
+        WorkerPool pool = new WorkerPool(List.of(first, second, third), config, new SimpleMeterRegistry());
+        assertEquals(Set.of("first", "second", "third"), Set.of(
+                pool.select(Set.of()).id(), pool.select(Set.of()).id(), pool.select(Set.of()).id()));
+    }
+
     @Test void retriesOnAnotherWorkerAfterUnavailable() {
         WorkerClient first = worker("first", 0, true);
         WorkerClient second = worker("second", 1, true);
