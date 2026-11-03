@@ -11,6 +11,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class WorkerPoolTest {
@@ -86,5 +88,26 @@ class WorkerPoolTest {
     @Test void emptyWorkerConfigurationFailsAtStartup() {
         assertThrows(IllegalArgumentException.class,
                 () -> new WorkerPool(List.of(), config, new SimpleMeterRegistry()));
+    }
+
+    @Test void slowHealthProbeDoesNotDelayOtherWorkers() throws Exception {
+        WorkerClient slow = worker("slow", 0, true);
+        WorkerClient fast = worker("fast", 0, true);
+        CountDownLatch slowStarted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch fastChecked = new CountDownLatch(1);
+        doAnswer(call -> { slowStarted.countDown(); release.await(2, TimeUnit.SECONDS); return null; })
+                .when(slow).checkHealth(any());
+        doAnswer(call -> { fastChecked.countDown(); return null; }).when(fast).checkHealth(any());
+        WorkerPool pool = new WorkerPool(List.of(slow, fast), config, new SimpleMeterRegistry());
+        Thread check = new Thread(pool::checkHealth);
+        try {
+            check.start();
+            assertTrue(slowStarted.await(1, TimeUnit.SECONDS));
+            assertTrue(fastChecked.await(1, TimeUnit.SECONDS));
+        } finally {
+            release.countDown();
+            check.join(2000);
+        }
     }
 }

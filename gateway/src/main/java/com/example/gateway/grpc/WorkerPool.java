@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +51,11 @@ public class WorkerPool {
     public void initialize() { checkHealth(); }
 
     @Scheduled(fixedDelayString = "${inference.health-interval:5s}")
-    public void checkHealth() { workers.forEach(w -> w.checkHealth(properties.healthTimeout())); }
+    public void checkHealth() {
+        try (var probes = Executors.newVirtualThreadPerTaskExecutor()) {
+            workers.forEach(worker -> probes.submit(() -> worker.checkHealth(properties.healthTimeout())));
+        }
+    }
 
     public WorkerClient select(Set<String> excluded) {
         int offset = Math.floorMod(tieBreaker.getAndIncrement(), Math.max(1, workers.size()));
