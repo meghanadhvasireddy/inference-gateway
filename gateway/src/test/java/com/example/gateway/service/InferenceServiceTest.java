@@ -7,12 +7,15 @@ import static org.mockito.Mockito.*;
 import com.example.gateway.api.InferenceRequestDto;
 import com.example.gateway.cache.InferenceCache;
 import com.example.gateway.grpc.WorkerPool;
+import com.example.gateway.model.InferenceRequestEntity;
+import com.example.inference.proto.InferenceRequest;
 import com.example.inference.proto.InferenceResponse;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.slf4j.MDC;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class InferenceServiceTest {
     private final InferenceRequestDto request = new InferenceRequestDto("mock-llm", "hello", 0.7, 10);
@@ -44,6 +47,12 @@ class InferenceServiceTest {
         assertFalse(result.cached());
         assertEquals("worker-2", result.workerId());
         verify(cache).put(eq("key"), eq(new InferenceCache.Entry("fresh answer", "worker-2", 2)));
+        ArgumentCaptor<InferenceRequest> rpc = ArgumentCaptor.forClass(InferenceRequest.class);
+        ArgumentCaptor<InferenceRequestEntity> row = ArgumentCaptor.forClass(InferenceRequestEntity.class);
+        verify(pool).infer(rpc.capture());
+        verify(telemetry).record(row.capture());
+        assertEquals(result.requestId(), rpc.getValue().getRequestId());
+        assertEquals(result.requestId(), row.getValue().requestId);
     }
 
     @Test void redisOutageStillUsesWorker() {
