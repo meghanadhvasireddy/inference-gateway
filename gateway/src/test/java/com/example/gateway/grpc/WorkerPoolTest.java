@@ -59,6 +59,21 @@ class WorkerPoolTest {
         assertEquals(1, meters.counter("inference.retries").count());
     }
 
+    @Test void deadlineExceededFallsBackToAnotherWorker() {
+        WorkerClient slow = worker("slow", 0, true);
+        WorkerClient backup = worker("backup", 1, true);
+        InferenceRequest request = InferenceRequest.newBuilder().setRequestId("deadline-test").build();
+        InferenceResponse response = InferenceResponse.newBuilder().setRequestId("deadline-test")
+                .setWorkerId("backup").build();
+        when(slow.infer(eq(request), eq(Duration.ofMillis(500))))
+                .thenThrow(Status.DEADLINE_EXCEEDED.asRuntimeException());
+        when(backup.infer(eq(request), eq(Duration.ofMillis(500)))).thenReturn(response);
+        WorkerPool pool = new WorkerPool(List.of(slow, backup), config, new SimpleMeterRegistry());
+        assertSame(response, pool.infer(request));
+        verify(slow, times(1)).infer(eq(request), eq(Duration.ofMillis(500)));
+        verify(backup, times(1)).infer(eq(request), eq(Duration.ofMillis(500)));
+    }
+
     @Test void doesNotRetryInvalidArgument() {
         WorkerClient first = worker("first", 0, true);
         WorkerClient second = worker("second", 1, true);
