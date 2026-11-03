@@ -107,17 +107,17 @@ docker run --rm --network inference-gateway_monitoring \
   grafana/k6:2.3.0 run /scripts/k6.js
 ```
 
-The script runs sequential 1, 10, 50, 100, and 250 virtual user stages. The default `CACHE_MODE=unique` gives every request a distinct prompt; `CACHE_MODE=repeat` uses ten repeated prompts to exercise cache hits. It writes a machine-readable `benchmarks/results.json` locally (ignored by Git). The checked-in [measured result](benchmarks/results/2026-10-03-local.json) came from Docker Desktop on 2026-10-03, with three mock workers and ten seconds per stage. Throughput is completed requests divided by stage duration; each stage is short, so these values are a demonstration rather than a capacity guarantee.
+The script runs sequential 1, 10, 50, 100, and 250 virtual user stages. The default `CACHE_MODE=unique` gives every request a distinct prompt; `CACHE_MODE=repeat` uses ten repeated prompts to exercise cache hits. It writes a machine-readable `benchmarks/results.json` locally (ignored by Git). The latest checked-in [measured result](benchmarks/results/2026-11-02-local.json) came from Docker Desktop on November 2, 2026 (local time), with three mock workers and ten seconds per stage. Throughput is completed requests divided by stage duration; each stage is short, so these values are a demonstration rather than a capacity guarantee. The [October 3 result](benchmarks/results/2026-10-03-local.json) is preserved as historical evidence for the earlier 1,241 requests/s and 352 ms P95 claim.
 
 | Clients | Requests | Throughput/s | Average ms | P50 ms | P95 ms | P99 ms | Error rate | Cache hit rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 63 | 6.3 | 159.2 | 157.4 | 211.2 | 356.0 | 0% | 0% |
-| 10 | 747 | 74.7 | 134.5 | 131.9 | 200.0 | 205.8 | 0% | 0% |
-| 50 | 3,685 | 368.5 | 138.2 | 136.9 | 201.3 | 269.9 | 0% | 0% |
-| 100 | 6,088 | 608.8 | 164.2 | 153.7 | 307.4 | 471.2 | 0% | 0% |
-| 250 | 12,414 | 1,241.4 | 202.3 | 192.2 | 352.0 | 501.8 | 0% | 0% |
+| 1 | 68 | 6.8 | 147.0 | 147.4 | 208.4 | 222.7 | 0% | 0% |
+| 10 | 725 | 72.5 | 138.7 | 139.4 | 200.0 | 205.9 | 0% | 0% |
+| 50 | 3,731 | 373.1 | 134.8 | 134.0 | 198.4 | 205.3 | 0% | 0% |
+| 100 | 7,467 | 746.7 | 134.6 | 134.1 | 198.1 | 206.8 | 0% | 0% |
+| 250 | 14,781 | 1,478.1 | 166.2 | 165.3 | 233.8 | 285.1 | 0% | 0% |
 
-An earlier run exposed health probe starvation at 100 and 250 clients. Moving inference execution to virtual threads fixed that failure mode; the table is from the rerun. The mock engine waits 60–200 ms and generates a short deterministic answer, so these numbers do not predict real model performance.
+An initial October run exposed health probe starvation at 100 and 250 clients. Moving inference execution to virtual threads fixed that failure mode. The mock engine waits 60–200 ms and generates a short deterministic answer, so these numbers do not predict real model performance. Describe the latest result as **1,478.1 requests/s at 233.8 ms P95 with 0% errors during a 10-second, 250-client local mock-inference stage**, rather than as a long-duration production capacity figure.
 
 ## Limits and next steps
 
