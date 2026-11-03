@@ -53,7 +53,14 @@ public class WorkerPool {
     @Scheduled(fixedDelayString = "${inference.health-interval:5s}")
     public void checkHealth() {
         try (var probes = Executors.newVirtualThreadPerTaskExecutor()) {
-            workers.forEach(worker -> probes.submit(() -> worker.checkHealth(properties.healthTimeout())));
+            workers.forEach(worker -> probes.submit(() -> {
+                boolean wasHealthy = worker.healthy();
+                worker.checkHealth(properties.healthTimeout());
+                if (wasHealthy && !worker.healthy()) {
+                    Counter.builder("inference.worker.health.failures").tag("worker", worker.id())
+                            .register(registry).increment();
+                }
+            }));
         }
     }
 

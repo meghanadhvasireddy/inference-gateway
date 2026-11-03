@@ -147,4 +147,18 @@ class WorkerPoolTest {
         pool.checkHealth();
         assertSame(worker, pool.select(Set.of()));
     }
+
+    @Test void countsHealthTransitionsOnlyOnce() {
+        WorkerClient worker = mock(WorkerClient.class);
+        AtomicBoolean healthy = new AtomicBoolean(true);
+        when(worker.id()).thenReturn("flaky");
+        when(worker.healthy()).thenAnswer(call -> healthy.get());
+        doAnswer(call -> { healthy.set(false); return null; }).when(worker).checkHealth(any());
+        SimpleMeterRegistry meters = new SimpleMeterRegistry();
+        WorkerPool pool = new WorkerPool(List.of(worker), config, meters);
+        pool.checkHealth();
+        pool.checkHealth();
+        assertEquals(1, meters.get("inference.worker.health.failures").tag("worker", "flaky")
+                .counter().count());
+    }
 }
