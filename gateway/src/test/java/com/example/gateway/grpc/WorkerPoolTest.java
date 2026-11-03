@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class WorkerPoolTest {
@@ -133,5 +134,17 @@ class WorkerPoolTest {
             release.countDown();
             check.join(2000);
         }
+    }
+
+    @Test void recoveredWorkerCanBeSelectedAgain() {
+        WorkerClient worker = mock(WorkerClient.class);
+        AtomicBoolean healthy = new AtomicBoolean(false);
+        when(worker.id()).thenReturn("recovering");
+        when(worker.healthy()).thenAnswer(call -> healthy.get());
+        doAnswer(call -> { healthy.set(true); return null; }).when(worker).checkHealth(any());
+        WorkerPool pool = new WorkerPool(List.of(worker), config, new SimpleMeterRegistry());
+        assertThrows(WorkerUnavailableException.class, () -> pool.select(Set.of()));
+        pool.checkHealth();
+        assertSame(worker, pool.select(Set.of()));
     }
 }
