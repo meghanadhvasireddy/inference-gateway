@@ -21,15 +21,18 @@ class TelemetryServiceTest {
             release.await(2, TimeUnit.SECONDS);
             return call.getArgument(0);
         });
-        TelemetryService telemetry = new TelemetryService(repository, new SimpleMeterRegistry());
+        SimpleMeterRegistry meters = new SimpleMeterRegistry();
+        TelemetryService telemetry = new TelemetryService(repository, meters);
         telemetry.record(row("first"));
         assertTrue(started.await(1, TimeUnit.SECONDS));
+        assertEquals(1, meters.get("inference.telemetry.active").gauge().value());
         Thread closer = new Thread(telemetry::close);
         closer.start();
         assertTrue(closer.isAlive());
         release.countDown();
         closer.join(2000);
         assertFalse(closer.isAlive());
+        assertEquals(0, meters.get("inference.telemetry.active").gauge().value());
         verify(repository).save(any(InferenceRequestEntity.class));
     }
 

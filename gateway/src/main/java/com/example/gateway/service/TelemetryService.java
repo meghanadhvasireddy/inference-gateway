@@ -21,6 +21,7 @@ public class TelemetryService {
     public TelemetryService(InferenceRequestRepository repository, MeterRegistry registry) {
         this.repository = repository; this.registry = registry;
         registry.gauge("inference.telemetry.queue", executor.getQueue(), java.util.Collection::size);
+        registry.gauge("inference.telemetry.active", executor, ThreadPoolExecutor::getActiveCount);
     }
     public void record(InferenceRequestEntity entity) {
         try { executor.execute(() -> {
