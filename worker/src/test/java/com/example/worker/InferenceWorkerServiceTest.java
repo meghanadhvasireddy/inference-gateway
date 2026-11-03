@@ -69,6 +69,13 @@ class InferenceWorkerServiceTest {
             });
             assertTrue(rejected.await(1, TimeUnit.SECONDS));
             assertEquals(Status.Code.RESOURCE_EXHAUSTED, Status.fromThrowable(error.get()).getCode());
+            AtomicReference<Throwable> invalid = new AtomicReference<>();
+            service.infer(InferenceRequest.newBuilder(request).setTemperature(Double.NaN).build(), new StreamObserver<>() {
+                public void onNext(InferenceResponse value) { fail("unexpected response"); }
+                public void onError(Throwable throwable) { invalid.set(throwable); }
+                public void onCompleted() { fail("unexpected completion"); }
+            });
+            assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(invalid.get()).getCode());
         } finally { release.countDown(); }
     }
 

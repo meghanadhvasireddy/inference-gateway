@@ -33,6 +33,15 @@ public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceW
 
     @Override
     public void infer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
+        if (request.getRequestId().isBlank() || request.getPrompt().isBlank() || request.getMaxTokens() < 1
+                || !Double.isFinite(request.getTemperature()) || request.getTemperature() < 0 || request.getTemperature() > 2) {
+            observer.onError(Status.INVALID_ARGUMENT.withDescription("invalid inference request").asRuntimeException());
+            return;
+        }
+        if (!request.getModel().equals("mock-llm")) {
+            observer.onError(Status.INVALID_ARGUMENT.withDescription("unsupported model").asRuntimeException());
+            return;
+        }
         if (!capacity.tryAcquire()) {
             observer.onError(Status.RESOURCE_EXHAUSTED.withDescription("worker is at capacity").asRuntimeException());
             return;
@@ -51,15 +60,6 @@ public final class InferenceWorkerService extends InferenceWorkerGrpc.InferenceW
     private void doInfer(InferenceRequest request, StreamObserver<InferenceResponse> observer) {
         long start = System.nanoTime();
         try {
-            if (request.getRequestId().isBlank() || request.getPrompt().isBlank() || request.getMaxTokens() < 1
-                    || !Double.isFinite(request.getTemperature()) || request.getTemperature() < 0 || request.getTemperature() > 2) {
-                observer.onError(Status.INVALID_ARGUMENT.withDescription("invalid inference request").asRuntimeException());
-                return;
-            }
-            if (!request.getModel().equals("mock-llm")) {
-                observer.onError(Status.INVALID_ARGUMENT.withDescription("unsupported model").asRuntimeException());
-                return;
-            }
             String output = engine.infer(request);
             long latencyMs = (System.nanoTime() - start) / 1_000_000;
             observer.onNext(InferenceResponse.newBuilder().setRequestId(request.getRequestId())
