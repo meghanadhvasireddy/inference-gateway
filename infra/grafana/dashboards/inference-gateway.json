@@ -62,6 +62,16 @@
         { "expr": "sum(rate(inference_worker_failures_total[1m]))", "legendFormat": "worker failures/s" },
         { "expr": "sum(rate(inference_retries_total[1m]))", "legendFormat": "retries/s" }
       ]
+    },
+    {
+      "id": 9, "title": "Telemetry pipeline", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "inference_telemetry_queue", "legendFormat": "queued rows" },
+        { "expr": "inference_telemetry_active", "legendFormat": "active writers" },
+        { "expr": "increase(inference_telemetry_dropped_total[5m])", "legendFormat": "dropped rows (5m)" }
+      ]
     }
   ]
 }
