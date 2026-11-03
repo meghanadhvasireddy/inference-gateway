@@ -75,6 +75,7 @@ An actual response from the local stack:
 Send the same body again to see `cached: true`. Stop one worker with `docker compose stop inference-worker-1`, wait for the next health probe, and send a new prompt to see failover. Restart it with `docker compose start inference-worker-1`.
 
 For a quick repeatable check of readiness, an uncached request, a Redis hit, the `X-Request-Id` header, and Prometheus metrics, run `python3 scripts/smoke.py` after the stack starts.
+Run `python3 scripts/failover.py` to stop worker 1 temporarily, wait for the gateway health probe to mark it down, verify an uncached request succeeds on worker 2 or 3, and restart worker 1 automatically.
 
 ## Telemetry and observability
 
