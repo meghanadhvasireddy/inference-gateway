@@ -19,7 +19,7 @@ levels.forEach((vus, index) => {
   };
   thresholds[`http_req_duration{scenario:${name}}`] = ['p(95)<30000'];
   thresholds[`http_reqs{scenario:${name}}`] = ['count>0'];
-  thresholds[`http_req_failed{scenario:${name}}`] = ['rate<1'];
+  thresholds[`request_errors{scenario:${name}}`] = ['rate<1'];
   thresholds[`cache_hits{scenario:${name}}`] = ['count>=0'];
 });
 
@@ -37,11 +37,17 @@ export function infer() {
     model: 'mock-llm', prompt, temperature: 0.7, maxTokens: 100,
   }), { headers: { 'Content-Type': 'application/json' }, timeout: '30s' });
   const good = check(response, { 'HTTP 200': r => r.status === 200 });
-  requestErrors.add(!good);
+  let cached = false;
+  let valid = good;
   if (good) {
-    try { cacheHits.add(response.json('cached') === true ? 1 : 0); }
-    catch (_) { requestErrors.add(true); }
+    try {
+      const body = response.json();
+      valid = typeof body.requestId === 'string' && typeof body.cached === 'boolean';
+      cached = valid && body.cached;
+    } catch (_) { valid = false; }
   }
+  requestErrors.add(!valid);
+  cacheHits.add(cached ? 1 : 0);
 }
 
 export function handleSummary(data) {
@@ -49,7 +55,7 @@ export function handleSummary(data) {
     const name = `c${vus}`;
     const latency = data.metrics[`http_req_duration{scenario:${name}}`]?.values || {};
     const requests = data.metrics[`http_reqs{scenario:${name}}`]?.values || {};
-    const failures = data.metrics[`http_req_failed{scenario:${name}}`]?.values || {};
+    const failures = data.metrics[`request_errors{scenario:${name}}`]?.values || {};
     const hits = data.metrics[`cache_hits{scenario:${name}}`]?.values || {};
     return {
       vus, requests: requests.count || 0,
@@ -64,7 +70,7 @@ export function handleSummary(data) {
   });
   const result = {
     measuredAt: new Date().toISOString(), cacheMode, stageSeconds: seconds, baseUrl,
-    overallErrorRate: data.metrics.http_req_failed?.values?.rate ?? null,
+    overallErrorRate: data.metrics.request_errors?.values?.rate ?? null,
     cacheHits: data.metrics.cache_hits?.values?.count ?? null,
     stages,
   };
