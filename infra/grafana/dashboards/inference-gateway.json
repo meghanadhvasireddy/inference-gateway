@@ -72,6 +72,15 @@
         { "expr": "inference_telemetry_active", "legendFormat": "active writers" },
         { "expr": "increase(inference_telemetry_dropped_total[5m])", "legendFormat": "dropped rows (5m)" }
       ]
+    },
+    {
+      "id": 10, "title": "Worker P95 latency", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(inference_worker_latency_seconds_bucket[5m])))", "legendFormat": "{{worker}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
     }
   ]
 }
