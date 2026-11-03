@@ -45,6 +45,7 @@ The REST boundary is convenient for clients. Inside the service, gRPC provides a
 5. Cache successful output with a configurable TTL. Queue a telemetry row for asynchronous PostgreSQL persistence. Respond with the worker ID and end-to-end latency.
 
 Workers run inference on Java 21 virtual threads so health RPCs remain responsive while inference calls wait. A periodic health probe restores workers after recovery. The gateway returns HTTP 503 when no healthy worker is available. Redis connection failures are logged and counted while inference continues without a cache result.
+Each worker also limits concurrent inference calls with a semaphore; set `WORKER_MAX_INFLIGHT` in `.env` to tune the limit (default: 256 per worker). Saturated workers return gRPC `RESOURCE_EXHAUSTED`, which the gateway can retry on another healthy worker.
 
 ## Run locally
 
