@@ -60,6 +60,7 @@
       "datasource": "Prometheus",
       "targets": [
         { "expr": "sum(rate(inference_worker_failures_total[1m]))", "legendFormat": "worker failures/s" },
+        { "expr": "sum(rate(inference_worker_health_failures_total[1m]))", "legendFormat": "health transitions/s" },
         { "expr": "sum(rate(inference_retries_total[1m]))", "legendFormat": "retries/s" }
       ]
     },
